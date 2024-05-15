@@ -1,0 +1,7 @@
+setup.py
+ChessBot/__init__.py
+ChessBot.egg-info/PKG-INFO
+ChessBot.egg-info/SOURCES.txt
+ChessBot.egg-info/dependency_links.txt
+ChessBot.egg-info/requires.txt
+ChessBot.egg-info/top_level.txt
