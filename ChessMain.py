@@ -15,7 +15,7 @@ Initialize a global dictionary of images. This will be called once in the main
 def loadImages():
     pieces = ['wp', 'bp', 'wK', 'wQ', 'wR', 'wB', 'wN', 'bK', 'bQ', 'bR', 'bB', 'bN']
     for piece in pieces:
-        IMAGES[piece] = p.transform.scale(p.image.load("Pictures/" + piece + ".png"), (SQ_SIZE, SQ_SIZE))
+        IMAGES[piece] = p.transform.scale(p.image.load("../Pictures/" + piece + ".png"), (SQ_SIZE, SQ_SIZE))
 
 
 #The main driver for our code. THis will handle user input and updating the graphics
