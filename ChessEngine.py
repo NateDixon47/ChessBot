@@ -89,6 +89,53 @@ class GameState():
             self.whiteToMove = not self.whiteToMove
             self.undoMove()
         return moves
+    
+    '''
+    Get all possible pins and checks
+    '''
+    def checkForPinsAndChecks(self):
+        pins = [] #squares where friendly pinned pieces are and direction of the pin
+        checks = [] #squares where enemy is applying the check
+        inCheck = False
+        if self.whiteToMove:
+            enemyColor = 'b'
+            allyColor = 'w'
+            startRow = self.whiteKingLocation[0]
+            startCol = self.whiteKingLocation[1]
+        else:
+            enemyColor = 'w'
+            allyColor = 'b'
+            startRow = self.blackKingLocation[0]
+            startCol = self.blackKingLocation[1]
+            
+        directions = ((-1, 0), (0, -1), (1, 0), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1))
+        for j in range(len(directions)):
+            piecesBlocking = 0
+            aroundKing = []
+            d = directions[j]
+            for i in range(1, 8):
+                endRow = startRow + d[0] * i
+                endCol = startCol + d[1] * i
+                if 0 <= endRow <= 7 and 0 <= endCol <= 7:
+                    piece = self.board[endRow][endCol]
+                    if piece[0] == enemyColor:
+                        if (piece[1] == 'B' and 0 <= j <= 3) or \
+                            (piece[1] == 'R' and 4 <= j <= 7) or \
+                                (piece[1] == 'Q') or (piece[1] == 'K' and i == 1) or \
+                                    (piece[1] == 'p' and (j == 7 or j == 5) and i == 1):
+                                        if piecesBlocking == 0: ## check, now piece in between king and attacking piece
+                                            checks.append((endRow, endCol, d[0], d[1]))
+                                        elif piecesBlocking == 1: ## Pin if 1 piece is blocking attacking piece
+                                            pins.append(possiblePin)
+                        else:
+                            piecesBlocking += 1
+                    elif piece[0] == allyColor:
+                        piecesBlocking += 1
+                        possiblePin = (endRow, endCol, d[0], d[1])
+                else: ## off board
+                    break
+            return checks, pins
+            
 
 
     '''
