@@ -79,48 +79,70 @@ class GameState():
     All moves considering checks
     '''
     def getValidMoves(self):
-        moves = []
+        moves = self.getAllPossibleMoves()
         self.inCheck, self.pins, self.checks = self.checkForPinsAndChecks()
+        
         if self.whiteToMove:
-            kingRow = self.whiteKingLocation[0]
-            kingCol = self.whiteKingLocation[1]
+            kingRow, kingCol = self.whiteKingLocation
         else:
-            kingRow = self.blackKingLocation[0]
-            kingCol = self.blackKingLocation[1]
+            kingRow, kingCol = self.blackKingLocation
+
         if self.inCheck:
-            if len(self.checks) == 1: # only 1 check, move or block
-                moves = self.getAllPossibleMoves()
+            if len(self.checks) == 1:
                 check = self.checks[0]
-                checkRow = check[0]
-                checkCol = check[1]
+                checkRow, checkCol, dRow, dCol = check
                 pieceChecking = self.board[checkRow][checkCol]
                 validSquares = []
+
                 if pieceChecking[1] == 'N':
                     validSquares = [(checkRow, checkCol)]
                 else:
                     for i in range(1, 8):
-                        validSquare = (kingRow + check[2] * i, kingCol + check[3] * i) #2 and 3 are checking directions
+                        validSquare = (kingRow + dRow * i, kingCol + dCol * i)
                         validSquares.append(validSquare)
                         if validSquare[0] == checkRow and validSquare[1] == checkCol:
                             break
-                
-                # get rid of any moves that don't block check or move king
-                for i in range(len(moves) - 1, - 1, -1):
-                    if moves[i].pieceMoved[1] != 'K':   # move doesn't move king so it must capture or block 
-                        if not (moves[i].endRow, moves[i].endCol) in validSquares:
+
+                for i in range(len(moves) - 1, -1, -1):
+                    move = moves[i]
+                    if move.pieceMoved[1] != 'K':
+                        if (move.endRow, move.endCol) not in validSquares:
                             moves.remove(moves[i])
-                            
-            else: # double check, king has to move
+                    elif (move.startRow, move.startCol) in [(p[0], p[1]) for p in self.pins]:
+                        moves.remove(moves[i])
+            else:
+                moves = []
                 self.getKingMoves(kingRow, kingCol, moves)
-                
-        else: # not in check so all moves are good
-            moves = self.getAllPossibleMoves()
-            
+        else:
+            if len(self.pins) != 0:
+                for pin in self.pins:
+                    pinnedPiecePosition = (pin[0], pin[1])
+                    pinDirection = (pin[2], pin[3])
+                    for i in range(len(moves) - 1, -1, -1):
+                        move = moves[i]
+                        if (move.startRow, move.startCol) == pinnedPiecePosition:
+                            if not self.isMoveAlongPinDirection(pinnedPiecePosition, (move.endRow, move.endCol), pinDirection):
+                                moves.remove(moves[i])
+
         return moves
 
-    """
-    Returns if the player is in check, a list of pins and a list of checks
-    """
+    def isMoveAlongPinDirection(self, startPos, endPos, direction):
+        startRow, startCol = startPos
+        endRow, endCol = endPos
+        dRow, dCol = direction
+
+        moveDirRow = endRow - startRow
+        moveDirCol = endCol - startCol
+
+        if dRow == 0:  # Horizontal pin
+            return moveDirRow == 0
+        elif dCol == 0:  # Vertical pin
+            return moveDirCol == 0
+        elif abs(dRow) == abs(dCol):  # Diagonal pin
+            return abs(moveDirRow) == abs(moveDirCol) and moveDirRow * dRow > 0 and moveDirCol * dCol > 0
+        else:
+            return False
+    
     def checkForPinsAndChecks(self):
         pins = [] #squares where friendly pinned pieces are and direction of the pin
         checks = [] #squares where enemy is applying the check
@@ -138,48 +160,36 @@ class GameState():
             
         directions = ((-1, 0), (0, -1), (1, 0), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1))
         for j in range(len(directions)):
+            piecesBlocking = 0
             d = directions[j]
-            possiblePin = ()
             for i in range(1, 8):
                 endRow = startRow + d[0] * i
                 endCol = startCol + d[1] * i
-                if 0 <= endRow < 8 and 0 <= endCol < 8:
-                    endPiece = self.board[endRow][endCol]
-                    if endPiece[0] == allyColor and endPiece[1] != 'K':
-                        if possiblePin == (): # first allied piece could be pinned
-                            possiblePin = (endRow, endCol, d[0], d[1])
-                        else: # second allied piece, so no pin or check possible in this direction
-                            break
-                    elif endPiece[0] == enemyColor:
-                        type = endPiece[1]
-                        if (0 <= j <= 3 and type == 'R') or \
-                            (4 <= j <= 7 and type == 'B') or \
-                                (i == 1 and type == 'p' and ((enemyColor == 'w' and 6 <= j <= 7)) or (enemyColor == 'b' and 4 <= j <= 5)) or \
-                                    (type == 'Q') or (i == 1 and type == 'K'):
-                                        if possiblePin == (): #No piece blocking
+                #print(f'piecesBlocking: {piecesBlocking}')
+                if 0 <= endRow <= 7 and 0 <= endCol <= 7:
+                    piece = self.board[endRow][endCol]
+                    if piece[0] == enemyColor:
+                        if (piece[1] == 'B' and 0 <= j <= 3) or \
+                            (piece[1] == 'R' and 4 <= j <= 7) or \
+                                (piece[1] == 'Q') or (piece[1] == 'K' and i == 1) or \
+                                    (piece[1] == 'p' and (j == 7 or j == 5) and i == 1):
+                                        #print('in big conditional')
+                                        if piecesBlocking == 0: ## check, now piece in between king and attacking piece
                                             inCheck = True
-                                            checks.append(endRow, endCol, d[0], d[1])
-                                            break
-                                        else: # piece blocking so it is a pin
+                                            if inCheck: print(f'incheck: {inCheck}')
+                                            checks.append((endRow, endCol, d[0], d[1]))
+                                        elif piecesBlocking == 1: ## Pin if 1 piece is blocking attacking piece
+                                            print(f'pin: {self.board[possiblePin[0]][possiblePin[1]]}')
                                             pins.append(possiblePin)
-                                            break
-                        else: # enemy piece not applying check
-                            break
-                        
-                else: # off the board
+                        else:
+                            piecesBlocking += 1
+                    elif piece[0] == allyColor:
+                        piecesBlocking += 1
+                        possiblePin = (endRow, endCol, d[0], d[1])
+                else: ## off board
                     break
-                
-            knightMoves = ((-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1))
-            for m in knightMoves:
-                endRow = startRow + m[0]
-                endCol = startCol + m[1]
-                if 0 <= endRow < 8 and 0 <= endCol < 8:
-                    endPiece = self.board[endRow][endCol]
-                    if endPiece[0] == enemyColor and endPiece[1] == 'N':
-                        inCheck = True
-                        checks.append(endRow, endCol, m[0], m[1])
-                        
-            return inCheck, pins, checks
+        return inCheck, pins, checks
+    
     '''
     will determine if the current player is in check
     '''
